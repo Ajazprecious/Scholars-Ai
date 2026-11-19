@@ -1,4 +1,4 @@
-# AJAZ AI — standalone study tutor
+# AJAZ AI —  study tutor
 
 AJAZ AI is a React/Vite learning app backed by an independent Node.js + Express API and PostgreSQL. The Base44 SDK and Vite plugin have been removed. Existing Base44 live data is intentionally not imported; the new installation starts with a clean database.
 
