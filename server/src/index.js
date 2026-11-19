@@ -1,0 +1,24 @@
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
+import authRoutes from './routes/auth.js';
+import learningRoutes from './routes/learning.js';
+import { pool } from './db.js';
+
+const app=express();
+app.set('trust proxy', 1);
+app.use(helmet());
+const allowedOrigins=(process.env.CLIENT_ORIGIN || 'http://localhost:5173').split(',').map(value=>value.trim());
+app.use(cors({origin:allowedOrigins,credentials:true}));
+app.use((req,res,next)=>{if(!['GET','HEAD','OPTIONS'].includes(req.method)&&req.headers.origin&&!allowedOrigins.includes(req.headers.origin))return res.status(403).json({error:'Request origin is not allowed'});next();});
+app.use(express.json({limit:'2mb'}));
+app.use(cookieParser());
+app.get('/api/health',async(_req,res)=>{try{await pool.query('SELECT 1');res.json({status:'ok',database:'connected'});}catch{res.status(503).json({status:'degraded',database:'unavailable'});}});
+app.use('/api/learning',learningRoutes);
+app.use('/api/auth',rateLimit({windowMs:15*60*1000,limit:30,standardHeaders:true,legacyHeaders:false}),authRoutes);
+app.use((err,_req,res,_next)=>{if(err?.name==='ZodError')return res.status(400).json({error:'Invalid request',details:err.issues.map(i=>({field:i.path.join('.'),message:i.message}))});console.error(err);const status=Number(err.status)|| (err.code==='LIMIT_FILE_SIZE'?413:500);res.status(status).json({error:process.env.NODE_ENV==='production'&&status>=500?'Internal server error':err.message});});
+const port=Number(process.env.PORT||4000);
+app.listen(port,()=>console.log(`AjazAI API listening on ${port}`));
